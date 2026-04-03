@@ -25,46 +25,42 @@ BOLD_SANS_SERIF = {'A':'𝗔','B':'𝗕','C':'𝗖','D':'𝗗','E':'𝗘','F':'�
 BOLD_ITALIC = {'A':'𝑨','B':'𝑩','C':'𝑪','D':'𝑫','E':'𝑬','F':'𝑭','G':'𝑮','H':'𝑯','I':'𝑰','J':'𝑱','K':'𝑲','L':'𝑳','M':'𝑴','N':'𝑵','O':'𝑶','P':'𝑷','Q':'𝑸','R':'𝑹','S':'𝑺','T':'𝑻','U':'𝑼','V':'𝑽','W':'𝑾','X':'𝑿','Y':'𝒀','Z':'𝒁',
                'a':'𝒂','b':'𝒃','c':'𝒄','d':'𝒅','e':'𝒆','f':'𝒇','g':'𝒈','h':'𝒉','i':'𝒊','j':'𝒋','k':'𝒌','l':'𝒍','m':'𝒎','n':'𝒏','o':'𝒐','p':'𝒑','q':'𝒒','r':'𝒓','s':'𝒔','t':'𝒕','u':'𝒖','v':'𝒗','w':'𝒘','x':'𝒙','y':'𝒚','z':'𝒛'}
 
-# ====================== SPECIAL MAPPING cho /m4 và /m5 ======================
-SPECIAL_MAP = {
+# ====================== SPECIAL MAPPING (ĐÃ CHỈNH ĐẸP HƠN) ======================
+SPECIAL_MAP_LOWER = {
     'a': 'а', 'e': 'е', 'o': 'ο', 'p': 'р', 'c': 'с', 'i': 'і', 'y': 'у',
-    'x': 'х', 'v': 'ν', 'n': 'ն', 'h': 'һ', 'g': 'ɡ', 'k': 'κ', 'm': 'ｍ',
-    'b': 'ｂ', 't': 'ｔ', 'l': 'ӏ', 'd': 'д', 'u': 'ս', 's': 'ѕ', 'r': 'ｒ'
+    'x': 'х', 'v': 'ν', 
+    'n': 'ո',      # Armenian n - đẹp
+    'h': 'һ', 
+    'g': 'ɡ', 
+    'k': 'κ', 
+    'm': 'ｍ',
+    'b': 'Ƅ',      # Latin hook b - đẹp và cân đối
+    't': '𝘁', 
+    'l': 'ӏ', 
+    'd': 'ԁ',      # Cyrillic soft d - đẹp hơn
+    'u': 'ս', 
+    's': 'ѕ', 
+    'r': 'г',      # Giữ nguyên như bạn yêu cầu
+    'đ': 'đ'
 }
 
-def get_font_map(font_type: str):
-    if font_type == "serif": return BOLD_SERIF
-    elif font_type == "sans": return BOLD_SANS_SERIF
-    elif font_type == "italic": return BOLD_ITALIC
-    return BOLD_SANS_SERIF
-
-def convert_word(word: str, font: str, mode: str) -> str:
-    mapping = get_font_map(font)
-    if mode == "full":
-        return ''.join(mapping.get(c, c) for c in word)
-    elif mode == "first" and word:
-        first = mapping.get(word[0], word[0]) if word[0].isalpha() else word[0]
-        return first + word[1:]
-    elif mode == "first_last" and word:
-        first = mapping.get(word[0], word[0]) if word[0].isalpha() else word[0]
-        last = mapping.get(word[-1], word[-1]) if len(word) > 1 and word[-1].isalpha() else word[-1]
-        return first + word[1:-1] + last
-    return word
-
-def convert_phrase(phrase: str, font: str, mode: str) -> str:
-    if not phrase: return phrase
-    return " ".join(convert_word(w, font, mode) for w in phrase.split())
+SPECIAL_MAP_UPPER = {
+    'A': 'А', 'B': 'В', 'E': 'Е', 'H': 'Н', 'K': 'Κ', 
+    'M': 'М', 'O': 'О', 'P': 'Р', 'T': 'Т', 'X': 'Х'
+}
 
 def apply_special_map(text: str) -> str:
-    """Áp dụng mapping đặc biệt cho các ký tự a,o,e,..."""
+    """Áp dụng special map: chữ hoa chỉ đổi một số, chữ thường đổi theo bảng đẹp"""
     result = []
     for char in text:
-        lower = char.lower()
-        if lower in SPECIAL_MAP:
-            new_char = SPECIAL_MAP[lower]
-            result.append(new_char if char.islower() else new_char.upper() if new_char.islower() else new_char)
+        if char.isupper():
+            result.append(SPECIAL_MAP_UPPER.get(char, char))
         else:
-            result.append(char)
+            lower = char.lower()
+            if lower in SPECIAL_MAP_LOWER:
+                result.append(SPECIAL_MAP_LOWER[lower])
+            else:
+                result.append(char)
     return ''.join(result)
 
 def process_text_m4(text: str, global_contact: str) -> str:
@@ -108,7 +104,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [[InlineKeyboardButton("Bold Serif", callback_data="font_serif")],
                 [InlineKeyboardButton("Bold Sans Serif", callback_data="font_sans")],
                 [InlineKeyboardButton("Bold Italic", callback_data="font_italic")]]
-    await update.message.reply_text("👋 Chào mừng đến với **BoldGen**!\nChọn font mặc định:", reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.message.reply_text("👋 Chào mừng đến với **BoldGen**!\n Được phát triển bởi: Tính\nChọn font mặc định:(khuyên dùng Bold Serif)", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -229,19 +225,38 @@ Lưu ý: lệnh /m4 và /m5 không tuân theo font đã chọn trước đó, /m
 nhưng lệnh /m4 tuy tốn tin nhắn nhưng đi tin nhắn trơn tru hơn (tùy người sử dụng)
 /help - Xem hướng dẫn""")
 
-async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.text.startswith("/"): return
-    user_id = str(update.effective_user.id)
-    if user_id not in users: users[user_id] = {"words": [], "font": "sans"}
-    result = convert_phrase(update.message.text, users[user_id]["font"], "full") + "\n" + convert_word(global_contact, users[user_id]["font"], "full")
-    await update.message.reply_text(result)
+def convert_word(word: str, font: str, mode: str) -> str:
+    mapping = get_font_map(font)
+    if mode == "full":
+        return ''.join(mapping.get(c, c) for c in word)
+    elif mode == "first" and word:
+        first = mapping.get(word[0], word[0]) if word[0].isalpha() else word[0]
+        return first + word[1:]
+    elif mode == "first_last" and word:
+        first = mapping.get(word[0], word[0]) if word[0].isalpha() else word[0]
+        last = mapping.get(word[-1], word[-1]) if len(word) > 1 and word[-1].isalpha() else word[-1]
+        return first + word[1:-1] + last
+    return word
+
+def convert_phrase(phrase: str, font: str, mode: str) -> str:
+    if not phrase: return phrase
+    return " ".join(convert_word(w, font, mode) for w in phrase.split())
+
+def get_font_map(font_type: str):
+    if font_type == "serif": return BOLD_SERIF
+    elif font_type == "sans": return BOLD_SANS_SERIF
+    elif font_type == "italic": return BOLD_ITALIC
+    return BOLD_SANS_SERIF
 
 # ====================== MAIN ======================
 def main():
     app = Application.builder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("font", lambda u, c: u.message.reply_text("Chọn font bạn muốn sử dụng:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Bold Serif", callback_data="font_serif")],[InlineKeyboardButton("Bold Sans Serif", callback_data="font_sans")],[InlineKeyboardButton("Bold Italic", callback_data="font_italic")]]))))
+    app.add_handler(CommandHandler("font", lambda u, c: u.message.reply_text("Chọn font bạn muốn sử dụng:", 
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Bold Serif", callback_data="font_serif")],
+                                           [InlineKeyboardButton("Bold Sans Serif", callback_data="font_sans")],
+                                           [InlineKeyboardButton("Bold Italic", callback_data="font_italic")]]))))
     app.add_handler(CommandHandler("add", add))
     app.add_handler(CommandHandler("del", delete))
     app.add_handler(CommandHandler("ds", ds))
@@ -252,9 +267,12 @@ def main():
     app.add_handler(CommandHandler("m5", m5))
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CallbackQueryHandler(button))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_normal_message))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, lambda u, c: u.message.reply_text(
+        convert_phrase(u.message.text, users[str(u.effective_user.id)]["font"], "full") + "\n" + 
+        convert_word(global_contact, users[str(u.effective_user.id)]["font"], "full") if str(u.effective_user.id) in users else u.message.text
+    )))
 
-    print("🚀 Bot BoldGen đang chạy... (Đã thêm /m4 và /m5)")
+    print("🚀 Bot BoldGen đang chạy... (Special font đã tối ưu đẹp hơn)")
     app.run_polling()
 
 if __name__ == "__main__":
