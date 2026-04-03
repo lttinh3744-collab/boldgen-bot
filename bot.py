@@ -220,6 +220,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /m1 <text> - In đậm toàn bộ
 /m2 <text> - In đậm chữ cái đầu
 /m3 <text> - In đậm chữ cái đầu + cuối
+/setlh <text> - Đổi dòng liên hệ (chỉ owner)
 /help - Xem hướng dẫn""")
 
 async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
