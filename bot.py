@@ -56,6 +56,7 @@ VIET_TO_NOACCENT = {
     'ú':'u','ù':'u','ủ':'u','ũ':'u','ụ':'u','ư':'u','ứ':'u','ừ':'u','ử':'u','ữ':'u','ự':'u',
     'ý':'y','ỳ':'y','ỷ':'y','ỹ':'y','ỵ':'y',
     'đ':'d',
+    # Chữ hoa
     'Á':'A','À':'A','Ả':'A','Ã':'A','Ạ':'A','Ă':'A','Ắ':'A','Ằ':'A','Ẳ':'A','Ẵ':'A','Ặ':'A',
     'Â':'A','Ấ':'A','Ầ':'A','Ẩ':'A','Ẫ':'A','Ậ':'A',
     'É':'E','È':'E','Ẻ':'E','Ẽ':'E','Ẹ':'E','Ê':'E','Ế':'E','Ề':'E','Ể':'E','Ễ':'E','Ệ':'E',
@@ -147,14 +148,14 @@ def load_data():
     if os.path.exists("bot_data.json"):
         with open("bot_data.json", "r", encoding="utf-8") as f:
             return json.load(f)
-    return {"global_contact": "LH: 0784.801.074", "users": {}}
+    return {"global_contact": "LH: 076.6482.506", "users": {}}
 
 def save_data(data):
     with open("bot_data.json", "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
 data = load_data()
-global_contact = data.get("global_contact", "LH: 0784.801.074")
+global_contact = data.get("global_contact", "LH: 076.6482.506")
 users = data.get("users", {})
 
 # ====================== HANDLERS ======================
@@ -187,7 +188,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data == "choose_font":
         keyboard = [
             [InlineKeyboardButton("Bold Serif", callback_data="font_serif")],
-            [InlineKeyboardButton("Bold Sans Serif (Khuyên dùng)", callback_data="font_sans")],
+            [InlineKeyboardButton("Bold Sans Serif (khuyên dùng)", callback_data="font_sans")],
             [InlineKeyboardButton("Bold Italic", callback_data="font_italic")]
         ]
         await query.edit_message_text("🔤 **Chọn font mặc định bạn muốn sử dụng:**", 
@@ -206,7 +207,6 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         save_data(data)
 
-        # Sau khi chọn font → hiện nút hướng dẫn
         keyboard = [[InlineKeyboardButton("📖 Xem hướng dẫn sử dụng", callback_data="show_help")]]
         await query.edit_message_text(
             f"✅ **Đã kích hoạt font {name} thành công!**\n\n"
@@ -217,6 +217,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data == "show_help":
         await help_command(update, context)
 
+# ====================== CÁC LỆNH ======================
 async def add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.effective_user.id)
     if user_id not in users: users[user_id] = {"words": [], "font": "sans"}
@@ -312,6 +313,20 @@ async def m7(update: Update, context: ContextTypes.DEFAULT_TYPE):
     result = process_text_m7(text, users[user_id], global_contact)
     await update.message.reply_text(result)
 
+async def setlh(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if str(update.effective_user.id) != str(OWNER_ID):
+        await update.message.reply_text("🚫 Chỉ chủ bot mới dùng được lệnh này!")
+        return
+    new_contact = " ".join(context.args)
+    if not new_contact:
+        await update.message.reply_text("⚠️ Nhập nội dung sau /setlh")
+        return
+    global global_contact
+    global_contact = new_contact
+    data["global_contact"] = new_contact
+    save_data(data)
+    await update.message.reply_text(f"✅ Đã đổi dòng liên hệ thành:\n{new_contact}")
+
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = """📖 **Hướng dẫn BoldGen**
 Được phát triển bởi Tính
@@ -330,7 +345,7 @@ Lưu ý: lệnh /m4 và /m5 không tuân theo font đã chọn trước đó, /m
 nhưng lệnh /m4 tuy tốn tin nhắn nhưng đi tin nhắn trơn tru hơn (tùy người sử dụng)
 
 /m6 <text> đi tin nhắn sẽ tiết kiệm nhất (khuyên dùng)
-/m7 <text> - Giống /m6 nhưng bỏ dấu tiếng Việt
+/m7 <text> - Mathematical font + bỏ dấu tiếng Việt
 
 /help - Xem hướng dẫn này"""
 
@@ -346,16 +361,22 @@ async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TY
     result = convert_phrase(update.message.text, users[user_id]["font"], "full") + "\n" + convert_word(global_contact, users[user_id]["font"], "full")
     await update.message.reply_text(result)
 
-# ====================== MAIN ======================
+# ====================== MAIN + Bot Menu ======================
 async def post_init(application: Application):
+    """Bot Menu - Không hiển thị /del và /setlh"""
     commands = [
         BotCommand("start", "Bắt đầu sử dụng bot"),
         BotCommand("help", "Xem hướng dẫn chi tiết"),
         BotCommand("add", "Thêm từ in đậm"),
+        BotCommand("del", "Xóa từ in đậm"),
         BotCommand("ds", "Xem danh sách từ đã thêm"),
-        BotCommand("m4", "Kiểu chữ đặc biệt"),
-        BotCommand("m6", "Mathematical font"),
-        BotCommand("m7", "Mathematical font + bỏ dấu"),
+        BotCommand("m1", "In đậm toàn bộ văn bản"),
+        BotCommand("m2", "In đậm chữ cái đầu"),
+        BotCommand("m3", "In đậm chữ cái đầu và cuối"),
+        BotCommand("m4", "Kiểu chữ đặc biệt Cyrillic/Greek"),
+        BotCommand("m5", "Chỉ đổi từ đã add"),
+        BotCommand("m6", "Mathematical font cho chữ đầu/cuối"),
+        BotCommand("m7", "Mathematical font + bỏ dấu tiếng Việt"),
     ]
     await application.bot.set_my_commands(commands)
 
@@ -365,7 +386,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("add", add))
-    app.add_handler(CommandHandler("del", delete))
+    app.add_handler(CommandHandler("del", delete))      # vẫn giữ chức năng nhưng không hiện trong menu
     app.add_handler(CommandHandler("ds", ds))
     app.add_handler(CommandHandler("m1", m1))
     app.add_handler(CommandHandler("m2", m2))
@@ -374,10 +395,11 @@ def main():
     app.add_handler(CommandHandler("m5", m5))
     app.add_handler(CommandHandler("m6", m6))
     app.add_handler(CommandHandler("m7", m7))
+    app.add_handler(CommandHandler("setlh", setlh))     # vẫn giữ chức năng cho owner
     app.add_handler(CallbackQueryHandler(button))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_normal_message))
 
-    print("🚀 Bot BoldGen đang chạy với giao diện nút Start đẹp...")
+    print("🚀 Bot BoldGen đang chạy - Menu đã được tối ưu")
     app.run_polling()
 
 if __name__ == "__main__":
