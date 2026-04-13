@@ -2,7 +2,7 @@ import json
 import os
 import logging
 import random
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 
 logging.basicConfig(
@@ -114,7 +114,7 @@ def process_text_m6(text: str, user_data: dict, global_contact: str) -> str:
     words = text.split()
     result_words = []
     for word in words:
-        if not word:
+        if not word: 
             result_words.append(word)
             continue
         is_in_list = any(word.lower() == w.lower() for w in user_data.get("words", []))
@@ -165,10 +165,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         save_data(data)
 
     keyboard = [[InlineKeyboardButton("🚀 Bắt đầu sử dụng", callback_data="start_button")]]
-    await update.message.reply_text(
-        "👋 **Xin chào!**\nChào mừng bạn đến với **BoldGen**\nĐược phát triển bởi Tính",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    await update.message.reply_text("👋 **Xin chào!**\nChào mừng bạn đến với **BoldGen**\nĐược phát triển bởi Tính", 
+                                   reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -182,7 +180,6 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         await query.edit_message_text(
             "👋 **Chào mừng bạn đến với BoldGen!**\nĐược phát triển bởi Tính\n"
-            "Bot giúp bạn tạo chữ in đậm, chữ đặc biệt và nhiều kiểu font đẹp.\n\n"
             "Hãy chọn một trong các tùy chọn bên dưới:",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
@@ -190,23 +187,130 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data == "choose_font":
         keyboard = [
             [InlineKeyboardButton("Bold Serif", callback_data="font_serif")],
-            [InlineKeyboardButton("Bold Sans Serif (khuyên dùng)", callback_data="font_sans")],
+            [InlineKeyboardButton("Bold Sans Serif (Khuyên dùng)", callback_data="font_sans")],
             [InlineKeyboardButton("Bold Italic", callback_data="font_italic")]
         ]
-        await query.edit_message_text("🔤 **Chọn font mặc định:**", reply_markup=InlineKeyboardMarkup(keyboard))
+        await query.edit_message_text("🔤 **Chọn font mặc định bạn muốn sử dụng:**", 
+                                     reply_markup=InlineKeyboardMarkup(keyboard))
 
     elif query.data in ["font_serif", "font_sans", "font_italic"]:
-        if query.data == "font_serif": users[user_id]["font"] = "serif"; name = "Bold Serif"
-        elif query.data == "font_sans": users[user_id]["font"] = "sans"; name = "Bold Sans Serif"
-        else: users[user_id]["font"] = "italic"; name = "Bold Italic"
+        if query.data == "font_serif":
+            users[user_id]["font"] = "serif"
+            name = "Bold Serif"
+        elif query.data == "font_sans":
+            users[user_id]["font"] = "sans"
+            name = "Bold Sans Serif"
+        else:
+            users[user_id]["font"] = "italic"
+            name = "Bold Italic"
+        
         save_data(data)
-        await query.edit_message_text(f"✅ Đã kích hoạt font **{name}** thành công!")
+
+        # Sau khi chọn font → hiện nút hướng dẫn
+        keyboard = [[InlineKeyboardButton("📖 Xem hướng dẫn sử dụng", callback_data="show_help")]]
+        await query.edit_message_text(
+            f"✅ **Đã kích hoạt font {name} thành công!**\n\n"
+            "Bạn có thể bắt đầu sử dụng ngay bây giờ.",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
 
     elif query.data == "show_help":
         await help_command(update, context)
 
-# Các hàm add, delete, ds, m1-m5, m6, m7, help_command...
-# (để code không quá dài, mình rút gọn một số hàm. Nếu bạn cần đầy đủ tất cả hàm, hãy nói "thêm đầy đủ hàm cũ")
+async def add(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.effective_user.id)
+    if user_id not in users: users[user_id] = {"words": [], "font": "sans"}
+    term = " ".join(context.args)
+    if not term:
+        await update.message.reply_text("⚠️ Vui lòng nhập từ sau /add")
+        return
+    if term.lower() not in [w.lower() for w in users[user_id]["words"]]:
+        users[user_id]["words"].append(term)
+        save_data(data)
+        await update.message.reply_text(f"✅ Đã thêm **{term}** vào danh sách")
+    else:
+        await update.message.reply_text("ℹ️ Từ này đã tồn tại")
+
+async def delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.effective_user.id)
+    if user_id not in users or not users[user_id]["words"]:
+        await update.message.reply_text("Danh sách trống")
+        return
+    term = " ".join(context.args)
+    if not term:
+        await update.message.reply_text("⚠️ Vui lòng nhập từ sau /del")
+        return
+    for w in users[user_id]["words"][:]:
+        if w.lower() == term.lower():
+            users[user_id]["words"].remove(w)
+            save_data(data)
+            await update.message.reply_text(f"✅ Đã xóa **{w}** khỏi danh sách")
+            return
+    await update.message.reply_text("❌ Không tìm thấy từ")
+
+async def ds(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.effective_user.id)
+    if user_id not in users or not users[user_id]["words"]:
+        await update.message.reply_text("📋 Danh sách trống")
+        return
+    text = "📋 **Danh sách từ đã thêm:**\n" + "\n".join([f"• {w}" for w in users[user_id]["words"]])
+    await update.message.reply_text(text)
+
+async def m1(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.effective_user.id)
+    if user_id not in users: users[user_id] = {"words": [], "font": "sans"}
+    text = " ".join(context.args) or (update.message.text.split(maxsplit=1)[1] if len(update.message.text.split()) > 1 else "")
+    if not text: return await update.message.reply_text("⚠️ Nhập nội dung sau /m1")
+    result = convert_phrase(text, users[user_id]["font"], "full") + "\n" + convert_word(global_contact, users[user_id]["font"], "full")
+    await update.message.reply_text(result)
+
+async def m2(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.effective_user.id)
+    if user_id not in users: users[user_id] = {"words": [], "font": "sans"}
+    text = " ".join(context.args) or (update.message.text.split(maxsplit=1)[1] if len(update.message.text.split()) > 1 else "")
+    if not text: return await update.message.reply_text("⚠️ Nhập nội dung sau /m2")
+    result = convert_phrase(text, users[user_id]["font"], "first") + "\n" + convert_word(global_contact, users[user_id]["font"], "full")
+    await update.message.reply_text(result)
+
+async def m3(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.effective_user.id)
+    if user_id not in users: users[user_id] = {"words": [], "font": "sans"}
+    text = " ".join(context.args) or (update.message.text.split(maxsplit=1)[1] if len(update.message.text.split()) > 1 else "")
+    if not text: return await update.message.reply_text("⚠️ Nhập nội dung sau /m3")
+    result = convert_phrase(text, users[user_id]["font"], "first_last") + "\n" + convert_word(global_contact, users[user_id]["font"], "full")
+    await update.message.reply_text(result)
+
+async def m4(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.effective_user.id)
+    if user_id not in users: users[user_id] = {"words": [], "font": "sans"}
+    text = " ".join(context.args) or (update.message.text.split(maxsplit=1)[1] if len(update.message.text.split()) > 1 else "")
+    if not text: return await update.message.reply_text("⚠️ Nhập nội dung sau /m4")
+    result = apply_special_map(text) + "\n" + apply_special_map(global_contact)
+    await update.message.reply_text(result)
+
+async def m5(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.effective_user.id)
+    if user_id not in users: users[user_id] = {"words": [], "font": "sans"}
+    text = " ".join(context.args) or (update.message.text.split(maxsplit=1)[1] if len(update.message.text.split()) > 1 else "")
+    if not text: return await update.message.reply_text("⚠️ Nhập nội dung sau /m5")
+    result = apply_special_map(text) + "\n" + apply_special_map(global_contact)
+    await update.message.reply_text(result)
+
+async def m6(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.effective_user.id)
+    if user_id not in users: users[user_id] = {"words": [], "font": "sans"}
+    text = " ".join(context.args) or (update.message.text.split(maxsplit=1)[1] if len(update.message.text.split()) > 1 else "")
+    if not text: return await update.message.reply_text("⚠️ Nhập nội dung sau /m6")
+    result = process_text_m6(text, users[user_id], global_contact)
+    await update.message.reply_text(result)
+
+async def m7(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.effective_user.id)
+    if user_id not in users: users[user_id] = {"words": [], "font": "sans"}
+    text = " ".join(context.args) or (update.message.text.split(maxsplit=1)[1] if len(update.message.text.split()) > 1 else "")
+    if not text: return await update.message.reply_text("⚠️ Nhập nội dung sau /m7")
+    result = process_text_m7(text, users[user_id], global_contact)
+    await update.message.reply_text(result)
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = """📖 **Hướng dẫn BoldGen**
@@ -214,7 +318,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /start - Bắt đầu bot
 /add <từ> - Thêm từ in đậm
 /del <từ> - Xóa từ
-/ds - Xem danh sách
+/ds - Xem danh sách từ đã thêm
 
 /m1 <text> - In đậm toàn bộ từ có trong danh sách theo font đã chọn (hơi tốn SMS)
 /m2 <text> - In đậm chữ cái đầu có trong danh sách theo font đã chọn (tiết kiệm SMS hơn /m1)
@@ -228,22 +332,52 @@ nhưng lệnh /m4 tuy tốn tin nhắn nhưng đi tin nhắn trơn tru hơn (tù
 /m6 <text> đi tin nhắn sẽ tiết kiệm nhất (khuyên dùng)
 /m7 <text> - Giống /m6 nhưng bỏ dấu tiếng Việt
 
-/help - Xem hướng dẫn"""
+/help - Xem hướng dẫn này"""
 
     if update.callback_query:
         await update.callback_query.edit_message_text(text, parse_mode='Markdown')
     else:
         await update.message.reply_text(text, parse_mode='Markdown')
 
+async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.text.startswith("/"): return
+    user_id = str(update.effective_user.id)
+    if user_id not in users: users[user_id] = {"words": [], "font": "sans"}
+    result = convert_phrase(update.message.text, users[user_id]["font"], "full") + "\n" + convert_word(global_contact, users[user_id]["font"], "full")
+    await update.message.reply_text(result)
+
 # ====================== MAIN ======================
+async def post_init(application: Application):
+    commands = [
+        BotCommand("start", "Bắt đầu sử dụng bot"),
+        BotCommand("help", "Xem hướng dẫn chi tiết"),
+        BotCommand("add", "Thêm từ in đậm"),
+        BotCommand("ds", "Xem danh sách từ đã thêm"),
+        BotCommand("m4", "Kiểu chữ đặc biệt"),
+        BotCommand("m6", "Mathematical font"),
+        BotCommand("m7", "Mathematical font + bỏ dấu"),
+    ]
+    await application.bot.set_my_commands(commands)
+
 def main():
-    app = Application.builder().token(TOKEN).build()
+    app = Application.builder().token(TOKEN).post_init(post_init).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(CommandHandler("add", add))
+    app.add_handler(CommandHandler("del", delete))
+    app.add_handler(CommandHandler("ds", ds))
+    app.add_handler(CommandHandler("m1", m1))
+    app.add_handler(CommandHandler("m2", m2))
+    app.add_handler(CommandHandler("m3", m3))
+    app.add_handler(CommandHandler("m4", m4))
+    app.add_handler(CommandHandler("m5", m5))
+    app.add_handler(CommandHandler("m6", m6))
+    app.add_handler(CommandHandler("m7", m7))
     app.add_handler(CallbackQueryHandler(button))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_normal_message))
 
-    print("🚀 Bot BoldGen đang chạy với nút Bắt đầu...")
+    print("🚀 Bot BoldGen đang chạy với giao diện nút Start đẹp...")
     app.run_polling()
 
 if __name__ == "__main__":
